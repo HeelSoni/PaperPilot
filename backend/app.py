@@ -149,4 +149,11 @@ async def get_history(db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=port, reload=False)
+    # Detect if we are running inside the backend folder or at the root
+    if os.path.exists("backend"):
+        app_path = "backend.app:app"
+    else:
+        app_path = "app:app"
+    
+    print(f"Starting app on port {port} with entry point {app_path}")
+    uvicorn.run(app_path, host="0.0.0.0", port=port, reload=False)
