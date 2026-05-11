@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+torch
+transformers
+sentence-transformers
+scikit-learn
+requests
+aiohttp
+pydantic
+pydantic-settings
+python-multipart
+sqlalchemy
+databases
+aiosqlite
