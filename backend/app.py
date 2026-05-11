@@ -2,10 +2,17 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from backend.recommender import get_search_engine
-from backend.summarizer import get_summarizer
-from backend.database import get_db, SavedPaper, SearchHistory
-from backend.trends import analyze_trends
+try:
+    from backend.recommender import get_search_engine
+    from backend.summarizer import get_summarizer
+    from backend.database import get_db, SavedPaper, SearchHistory
+    from backend.trends import analyze_trends
+except ImportError:
+    from recommender import get_search_engine
+    from summarizer import get_summarizer
+    from database import get_db, SavedPaper, SearchHistory
+    from trends import analyze_trends
+
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import Depends
