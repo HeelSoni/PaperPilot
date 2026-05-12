@@ -1,35 +1,30 @@
-import sys
 import os
-# Add current and backend directories to path for flexible deployment
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend"))
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
+# Standardized imports assuming we run from the project root
 try:
     from backend.recommender import get_search_engine
     from backend.summarizer import get_summarizer
     from backend.database import get_db, SavedPaper, SearchHistory
     from backend.trends import analyze_trends
 except ImportError:
+    # Fallback for local execution inside the backend folder
     from recommender import get_search_engine
     from summarizer import get_summarizer
     from database import get_db, SavedPaper, SearchHistory
     from trends import analyze_trends
-
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
-from fastapi import Depends
-import uvicorn
 
 app = FastAPI(title="PaperPilot API")
 
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # In production, replace with your specific frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,29 +60,36 @@ class SavedPaperSchema(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "PaperPilot API is running"}
+    return {"message": "PaperPilot API is running", "status": "online"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
 
 @app.post("/search", response_model=List[Paper])
 async def search_papers(search_query: SearchQuery, db: Session = Depends(get_db)):
     try:
-        # Record search history
-        history_entry = SearchHistory(query=search_query.query)
-        db.add(history_entry)
-        db.commit()
-        
+        # Record search history (silent failure if DB fails)
+        try:
+            history_entry = SearchHistory(query=search_query.query)
+            db.add(history_entry)
+            db.commit()
+        except:
+            db.rollback()
+            
         engine = get_search_engine()
         results = engine.semantic_search(search_query.query, search_query.max_results)
         return results
     except Exception as e:
+        print(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/recommend/{paper_id}")
 async def recommend_papers(paper_id: str, title: str = "", abstract: str = ""):
     try:
         engine = get_search_engine()
-        # Use provided abstract/title if available, otherwise would need to fetch (omitted for speed)
         recommendations = engine.recommend_related_papers(paper_id, title, abstract)
-        # Filter out the original paper from recommendations
+        # Filter out the original paper
         recommendations = [p for p in recommendations if p['id'] != paper_id]
         return recommendations
     except Exception as e:
@@ -160,13 +162,7 @@ async def get_history(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    import os
+    import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    # Detect if we are running inside the backend folder or at the root
-    if os.path.exists("backend"):
-        app_path = "backend.app:app"
-    else:
-        app_path = "app:app"
-    
-    print(f"Starting app on port {port} with entry point {app_path}")
-    uvicorn.run(app_path, host="0.0.0.0", port=port, reload=False)
+    # Standard entry point for uvicorn
+    uvicorn.run("backend.app:app", host="0.0.0.0", port=port, reload=False)

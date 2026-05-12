@@ -1,6 +1,9 @@
 import requests
 import xml.etree.ElementTree as ET
-from backend.embeddings import get_embedder
+try:
+    from backend.embeddings import get_embedder
+except ImportError:
+    from embeddings import get_embedder
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import time
