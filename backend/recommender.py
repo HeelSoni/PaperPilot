@@ -121,10 +121,10 @@ class SearchEngine:
 
         # 2. Embed query and abstracts
         print("Encoding query...")
-        query_embedding = self.embedder.embed_text(query).cpu().numpy()
+        query_embedding = self.embedder.embed_text(query)
         print("Encoding abstracts...")
         abstracts = [p['abstract'] for p in candidates]
-        abstract_embeddings = self.embedder.embed_text(abstracts).cpu().numpy()
+        abstract_embeddings = self.embedder.embed_text(abstracts)
 
         # 3. Calculate cosine similarity
         print("Calculating similarities...")
