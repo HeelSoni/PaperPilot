@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, BookOpen, ExternalLink, Sparkles, X, ChevronRight, BarChart3, Share2, MessageSquare, Send, Zap, Info, Target, AlertCircle, Repeat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Plot from 'react-plotly.js';
+// Plotly removed - using lightweight CSS chart instead
 import ForceGraph2D from 'react-force-graph-2d';
 import './App.css';
 
@@ -337,26 +337,22 @@ function App() {
             <div className="trend-card">
               <h3><BarChart3 size={20} /> Research Trends</h3>
               {trends && Array.isArray(trends.trends) && trends.trends.length > 0 ? (
-                <Plot
-                  data={[{
-                    x: trends.trends.map(t => t?.year || 0),
-                    y: trends.trends.map(t => t?.count || 0),
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    marker: { color: '#6366f1' },
-                    line: { shape: 'spline' }
-                  }]}
-                  layout={{
-                    autosize: true, height: 280, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                    margin: { l: 40, r: 20, t: 20, b: 40 },
-                    font: { color: '#94a3b8', size: 10 },
-                    xaxis: { gridcolor: '#1e293b', zeroline: false },
-                    yaxis: { gridcolor: '#1e293b', zeroline: false }
-                  }}
-                  config={{ responsive: true, displayModeBar: false }}
-                  style={{ width: '100%' }}
-                />
-              ) : <p className="muted">Trends will appear after a search.</p>}
+                <div style={{ padding: '1rem 0' }}>
+                  {trends.trends.map((t, i) => {
+                    const max = Math.max(...trends.trends.map(x => x.count || 0));
+                    const pct = max > 0 ? ((t.count || 0) / max) * 100 : 0;
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#94a3b8', fontSize: '11px', width: '32px' }}>{t.year}</span>
+                        <div style={{ flex: 1, background: '#1e293b', borderRadius: '4px', height: '18px' }}>
+                          <div style={{ width: `${pct}%`, background: '#6366f1', height: '100%', borderRadius: '4px', transition: 'width 0.5s' }} />
+                        </div>
+                        <span style={{ color: '#94a3b8', fontSize: '11px', width: '40px' }}>{t.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="muted">Search a topic to see publication trends.</p>}
             </div>
 
             <div className="history-card">
