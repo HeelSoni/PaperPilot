@@ -47,9 +47,9 @@ class Summarizer:
     def extract_insights(self, title, abstract):
         """Extracts structured insights using an instruction-tuned model."""
         # Use a more capable model for instructions
-        insight_model_url = "https://api-inference.huggingface.co/models/google/gemma-2-9b-it"
+        insight_model_url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
         
-        prompt = f"<start_of_turn>user\nExtract key technical details from this research paper abstract. Format the response as a JSON object with these keys: methodology, dataset, key_results, limitations, future_work. Keep each value under 15 words.\nTitle: {title}\nAbstract: {abstract}<end_of_turn>\n<start_of_turn>model\n"
+        prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\nExtract technical details as JSON with keys: methodology, dataset, key_results, limitations, future_work. Keep values under 15 words.<|eot_id|><|start_header_id|>user<|end_header_id|>\nTitle: {title}\nAbstract: {abstract}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
 
         payload = {
             "inputs": prompt,
@@ -100,10 +100,10 @@ class Summarizer:
         if not os.getenv('HUGGINGFACE_API_KEY'):
             return "Please set HUGGINGFACE_API_KEY in environment variables to enable chat."
 
-        # Use Gemma-2-9b-it for better stability
-        chat_model_url = "https://api-inference.huggingface.co/models/google/gemma-2-9b-it"
+        # Use Llama-3.2-3B-Instruct for maximum reliability
+        chat_model_url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
         
-        prompt = f"<start_of_turn>user\nYou are a research assistant. Answer based on this paper.\nTitle: {title}\nAbstract: {abstract}\nQuestion: {question}<end_of_turn>\n<start_of_turn>model\n"
+        prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\nYou are a research assistant. Answer based on this paper.\nTitle: {title}\nAbstract: {abstract}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
 
         payload = {
             "inputs": prompt,
