@@ -178,9 +178,10 @@ function App() {
       .catch(() => setInsights({}))
       .finally(() => setInsightsLoading(false));
 
-    // 4. Citation Graph (Feature 3)
+    // 4. Citation Graph (Feature 3) — pass title for fallback search
     const encodedId = encodeURIComponent(paperId);
-    axios.get(`${API_BASE}/citation-graph/${encodedId}`)
+    const encodedTitle = encodeURIComponent(normalizedPaper.title || '');
+    axios.get(`${API_BASE}/citation-graph/${encodedId}?title=${encodedTitle}`)
       .then(res => {
         // Defensive check: ensure res.data is a valid graph object
         if (res.data && Array.isArray(res.data.nodes)) {

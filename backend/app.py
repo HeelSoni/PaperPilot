@@ -210,10 +210,10 @@ async def get_citations(paper_id: str, title: str = ""):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/citation-graph/{paper_id}")
-async def get_citation_graph(paper_id: str):
+async def get_citation_graph(paper_id: str, title: str = ""):
     try:
         engine = get_search_engine()
-        graph_data = engine.get_citation_graph(paper_id)
+        graph_data = engine.get_citation_graph(paper_id, title=title)
         return graph_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

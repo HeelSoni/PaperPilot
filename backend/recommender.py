@@ -138,58 +138,51 @@ class SearchEngine:
         ranked_papers = sorted(candidates, key=lambda x: x['relevance_score'], reverse=True)
         return ranked_papers[:max_results]
 
-    def get_citation_graph(self, paper_id):
+    def get_citation_graph(self, paper_id, title=""):
         """
-        Fetches citations from Semantic Scholar and returns a graph structure.
+        Fetches citations from Semantic Scholar. Tries arXiv ID first, then title search.
         """
-        # Clean ID (Remove URL prefix if any)
-        clean_id = paper_id.split('/')[-1].replace('arXiv:', '')
-        
-        # Ensure ArXiv ID format for Semantic Scholar
-        ss_id = f"ARXIV:{clean_id}"
-
-        # Use Semantic Scholar API with retry logic
-        url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields=title,authors,year,citations.title,citations.authors,citations.year,citations.paperId"
-        
         import time
-        for attempt in range(2): # Try twice
+
+        def build_graph(data, paper_id):
+            nodes = [{"id": paper_id, "title": data.get("title", "Current Paper"), "val": 20, "color": "#7C3AED"}]
+            links = []
+            for i, cite in enumerate(data.get("citations", [])[:15]):
+                cite_id = cite.get("paperId", f"cite_{i}")
+                nodes.append({"id": cite_id, "title": cite.get("title", "Related Work"), "val": 10, "color": "#6366f1"})
+                links.append({"source": paper_id, "target": cite_id})
+            return {"nodes": nodes, "links": links}
+
+        fields = "title,citations.title,citations.paperId"
+
+        # 1. Try by arXiv ID
+        clean_id = paper_id.split('/')[-1].replace('arXiv:', '').strip()
+        ss_id = f"ARXIV:{clean_id}"
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields={fields}"
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if data.get("citations"):
+                    return build_graph(data, paper_id)
+        except Exception as e:
+            print(f"Citation graph arXiv lookup error: {e}")
+
+        # 2. Fallback: search by title
+        if title:
             try:
-                response = requests.get(url, timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
-                    
-                    nodes = [{
-                        "id": paper_id,
-                        "title": data.get("title", "Current Paper"),
-                        "val": 20,
-                        "color": "#7C3AED"
-                    }]
-                    links = []
-                    
-                    citations = data.get("citations", [])[:15]
-                    for i, cite in enumerate(citations):
-                        cite_id = cite.get("paperId", f"cite_{i}")
-                        nodes.append({
-                            "id": cite_id,
-                            "title": cite.get("title", "Related Work"),
-                            "val": 10,
-                            "color": "#6366f1"
-                        })
-                        links.append({
-                            "source": paper_id,
-                            "target": cite_id
-                        })
-                    
-                    return {"nodes": nodes, "links": links}
-                elif response.status_code == 429:
-                    time.sleep(2) # Wait 2 seconds if rate limited
-                    continue
+                search_url = "https://api.semanticscholar.org/graph/v1/paper/search"
+                params = {"query": title[:100], "fields": fields, "limit": 1}
+                r = requests.get(search_url, params=params, timeout=10)
+                if r.status_code == 200:
+                    results = r.json().get("data", [])
+                    if results and results[0].get("citations"):
+                        return build_graph(results[0], paper_id)
             except Exception as e:
-                print(f"Citation attempt {attempt} error: {e}")
-                time.sleep(1)
-        
-        # Fallback empty graph
-        return {"nodes": [{"id": paper_id, "title": "Paper", "val": 20, "color": "#7C3AED"}], "links": []}
+                print(f"Citation graph title search error: {e}")
+
+        # 3. Fallback — show single node
+        return {"nodes": [{"id": paper_id, "title": title or "Current Paper", "val": 20, "color": "#7C3AED"}], "links": []}
 
     def recommend_related_papers(self, paper_id, title, abstract, max_results=5):
         """
