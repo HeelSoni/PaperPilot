@@ -27,5 +27,6 @@ RUN mkdir -p /app/database
 ENV PORT=8000
 EXPOSE $PORT
 
-# Start the FastAPI app (Shell form allows $PORT expansion)
-CMD uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+# Start the FastAPI app by running the module directly
+# The Python code in app.py will read the $PORT environment variable
+CMD ["python", "-m", "backend.app"]

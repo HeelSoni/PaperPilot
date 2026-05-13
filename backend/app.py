@@ -163,6 +163,7 @@ async def get_history(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
+    # Read port from environment variable (provided by Railway)
     port = int(os.environ.get("PORT", 8000))
-    # Standard entry point for uvicorn
+    print(f"Starting server on port {port}")
     uvicorn.run("backend.app:app", host="0.0.0.0", port=port, reload=False)
