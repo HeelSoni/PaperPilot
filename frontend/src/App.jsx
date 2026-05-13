@@ -7,7 +7,7 @@ import ForceGraph2D from 'react-force-graph-2d';
 import './App.css';
 
 // v2.1 - Features: Chat, Insights, ForceGraph
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://paperpilot-production-cda3.up.railway.app';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
