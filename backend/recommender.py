@@ -148,37 +148,45 @@ class SearchEngine:
         # Ensure ArXiv ID format for Semantic Scholar
         ss_id = f"ARXIV:{clean_id}"
 
-        # Use Semantic Scholar API to get citations
+        # Use Semantic Scholar API with retry logic
         url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields=title,authors,year,citations.title,citations.authors,citations.year,citations.paperId"
         
-        try:
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                
-                nodes = [{
-                    "id": paper_id,
-                    "title": data.get("title", "Current Paper"),
-                    "val": 20, # Larger node for center
-                    "color": "#7C3AED" # Primary purple
-                }]
-                links = []
-                
-                citations = data.get("citations", [])[:15] # Limit to 15 for visual clarity
-                for i, cite in enumerate(citations):
-                    cite_id = cite.get("paperId", f"cite_{i}")
-                    nodes.append({
-                        "id": cite_id,
-                        "title": cite.get("title", "Related Work"),
-                        "val": 10,
-                        "color": "#6366f1"
-                    })
-                    links.append({
-                        "source": paper_id,
-                        "target": cite_id
-                    })
-                
-                return {"nodes": nodes, "links": links}
+        import time
+        for attempt in range(2): # Try twice
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    nodes = [{
+                        "id": paper_id,
+                        "title": data.get("title", "Current Paper"),
+                        "val": 20,
+                        "color": "#7C3AED"
+                    }]
+                    links = []
+                    
+                    citations = data.get("citations", [])[:15]
+                    for i, cite in enumerate(citations):
+                        cite_id = cite.get("paperId", f"cite_{i}")
+                        nodes.append({
+                            "id": cite_id,
+                            "title": cite.get("title", "Related Work"),
+                            "val": 10,
+                            "color": "#6366f1"
+                        })
+                        links.append({
+                            "source": paper_id,
+                            "target": cite_id
+                        })
+                    
+                    return {"nodes": nodes, "links": links}
+                elif response.status_code == 429:
+                    time.sleep(2) # Wait 2 seconds if rate limited
+                    continue
+            except Exception as e:
+                print(f"Citation attempt {attempt} error: {e}")
+                time.sleep(1)
         except Exception as e:
             print(f"Citation graph error: {e}")
         
