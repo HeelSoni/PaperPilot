@@ -6,6 +6,7 @@ import Plot from 'react-plotly.js';
 import ForceGraph2D from 'react-force-graph-2d';
 import './App.css';
 
+// v2.1 - Features: Chat, Insights, ForceGraph
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 class ErrorBoundary extends React.Component {

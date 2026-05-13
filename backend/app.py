@@ -189,7 +189,7 @@ async def get_trends(topic: str):
 async def get_citations(paper_id: str, title: str = ""):
     try:
         engine = get_search_engine()
-        return engine.get_citations_from_ss(paper_id, title)
+        return engine.fetch_citations(paper_id, title=title)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
