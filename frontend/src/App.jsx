@@ -68,6 +68,13 @@ function App() {
     scrollToBottom();
   }, [chatMessages]);
 
+  useEffect(() => {
+    // Health check to verify backend connection
+    axios.get(`${API_BASE}/`)
+      .then(() => console.log("🚀 PaperPilot connected to backend at:", API_BASE))
+      .catch(err => console.error("❌ Connection failed to:", API_BASE, err));
+  }, []);
+
   const fetchReadingList = async () => {
     try {
       const response = await axios.get(`${API_BASE}/reading-list`);
