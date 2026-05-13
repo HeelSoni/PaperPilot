@@ -21,6 +21,21 @@ except ImportError:
 
 app = FastAPI(title="PaperPilot API")
 
+# Global Exception Handler
+@app.middleware("http")
+async def catch_exceptions_middleware(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        import traceback
+        print(f"🔥 GLOBAL CRASH: {e}")
+        print(traceback.format_exc())
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error", "error": str(e)}
+        )
+
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
