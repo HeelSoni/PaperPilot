@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, BookOpen, ExternalLink, Sparkles, X, ChevronRight, BarChart3, Share2 } from 'lucide-react';
+import { Search, BookOpen, ExternalLink, Sparkles, X, ChevronRight, BarChart3, Share2, MessageSquare, Send, Zap, Info, Target, AlertCircle, Repeat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Plot from 'react-plotly.js';
+import ForceGraph2D from 'react-force-graph-2d';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
@@ -43,11 +44,28 @@ function App() {
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
   const [relatedPapers, setRelatedPapers] = useState([]);
-  const [citations, setCitations] = useState([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [recsLoading, setRecsLoading] = useState(false);
-  const [citationsLoading, setCitationsLoading] = useState(false);
   const [trends, setTrends] = useState(null);
+
+  // New Features State
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphLoading, setGraphLoading] = useState(false);
+  
+  const chatEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
 
   const fetchReadingList = async () => {
     try {
@@ -89,7 +107,7 @@ function App() {
       });
       setResults(response.data);
       fetchTrends(query);
-      fetchHistory(); // Refresh history
+      fetchHistory(); 
     } catch (err) {
       setError('Failed to fetch papers. Make sure the backend is running.');
       console.error(err);
@@ -108,7 +126,6 @@ function App() {
   };
 
   const openDetail = async (paper) => {
-    // Normalize paper object (handle both search results and library items)
     const normalizedPaper = {
       id: paper.id || paper.paper_id,
       title: paper.title,
@@ -120,40 +137,74 @@ function App() {
     setSelectedPaper(normalizedPaper);
     setAiSummary('');
     setRelatedPapers([]);
-    setCitations([]);
+    setInsights(null);
+    setChatMessages([
+      { role: 'ai', content: `Hello! I've indexed "${normalizedPaper.title}". What would you like to know about it?` }
+    ]);
+    setGraphData({ nodes: [], links: [] });
     
     setSummaryLoading(true);
     setRecsLoading(true);
-    setCitationsLoading(true);
+    setInsightsLoading(true);
+    setGraphLoading(true);
     
     const paperId = normalizedPaper.id;
-    const title = encodeURIComponent(normalizedPaper.title);
-    const abstract = encodeURIComponent(normalizedPaper.abstract);
 
-    // Fetch all in parallel
+    // 1. Summary
     axios.post(`${API_BASE}/summarize`, { text: normalizedPaper.abstract })
       .then(res => setAiSummary(res.data.summary))
-      .catch(err => {
-        console.error(err);
-        setAiSummary("Failed to generate AI summary.");
-      })
+      .catch(() => setAiSummary("Failed to generate AI summary."))
       .finally(() => setSummaryLoading(false));
 
+    // 2. Recommendations
+    const title = encodeURIComponent(normalizedPaper.title);
+    const abstract = encodeURIComponent(normalizedPaper.abstract);
     axios.get(`${API_BASE}/recommend/${paperId}?title=${title}&abstract=${abstract}`)
       .then(res => setRelatedPapers(res.data))
-      .catch(err => {
-        console.error(err);
-        setRelatedPapers([]);
-      })
+      .catch(() => setRelatedPapers([]))
       .finally(() => setRecsLoading(false));
 
-    axios.get(`${API_BASE}/citations/${paperId}?title=${title}`)
-      .then(res => setCitations(res.data))
-      .catch(err => {
-        console.error(err);
-        setCitations([]);
+    // 3. Insights (Feature 2)
+    axios.post(`${API_BASE}/extract-insights`, { title: normalizedPaper.title, abstract: normalizedPaper.abstract })
+      .then(res => setInsights(res.data))
+      .catch(() => setInsights(null))
+      .finally(() => setInsightsLoading(false));
+
+    // 4. Citation Graph (Feature 3)
+    const encodedId = encodeURIComponent(paperId);
+    axios.get(`${API_BASE}/citation-graph/${encodedId}`)
+      .then(res => {
+        if (res.data && res.data.nodes) {
+          setGraphData(res.data);
+        } else {
+          setGraphData({ nodes: [], links: [] });
+        }
       })
-      .finally(() => setCitationsLoading(false));
+      .catch(() => setGraphData({ nodes: [], links: [] }))
+      .finally(() => setGraphLoading(false));
+  };
+
+  const handleChat = async (question = null) => {
+    const q = question || chatInput;
+    if (!q.trim() || chatLoading) return;
+
+    const newMessages = [...chatMessages, { role: 'user', content: q }];
+    setChatMessages(newMessages);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const response = await axios.post(`${API_BASE}/chat`, {
+        title: selectedPaper.title,
+        abstract: selectedPaper.abstract,
+        question: q
+      });
+      setChatMessages([...newMessages, { role: 'ai', content: response.data.answer }]);
+    } catch (err) {
+      setChatMessages([...newMessages, { role: 'ai', content: "Sorry, I couldn't process that question. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const savePaper = async (paper) => {
@@ -168,7 +219,7 @@ function App() {
       alert('Paper saved to reading list!');
       fetchReadingList();
     } catch (err) {
-      alert('Failed to save paper or already saved.');
+      alert('Failed to save paper.');
     }
   };
 
@@ -180,6 +231,13 @@ function App() {
       alert('Failed to remove paper.');
     }
   };
+
+  const suggestions = [
+    "What is the main contribution?",
+    "What dataset was used?",
+    "What are the limitations?",
+    "Explain the methodology simply"
+  ];
 
   return (
     <ErrorBoundary>
@@ -201,21 +259,8 @@ function App() {
         </motion.p>
         
         <div className="nav-tabs">
-          <button 
-            className={`tab ${view === 'search' ? 'active' : ''}`}
-            onClick={() => setView('search')}
-          >
-            Search
-          </button>
-          <button 
-            className={`tab ${view === 'library' ? 'active' : ''}`}
-            onClick={() => {
-              setView('library');
-              fetchReadingList();
-            }}
-          >
-            Library
-          </button>
+          <button className={`tab ${view === 'search' ? 'active' : ''}`} onClick={() => setView('search')}>Search</button>
+          <button className={`tab ${view === 'library' ? 'active' : ''}`} onClick={() => { setView('library'); fetchReadingList(); }}>Library</button>
         </div>
       </header>
 
@@ -261,22 +306,13 @@ function App() {
                     <div className="card-actions">
                       <button 
                         className={`save-btn ${isSaved(paper.id) ? 'saved' : ''}`} 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          savePaper(paper);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); savePaper(paper); }}
                         disabled={isSaved(paper.id)}
                       >
                         <BookOpen size={16} />
                         {isSaved(paper.id) ? 'Saved' : 'Save'}
                       </button>
-                      <a 
-                        href={paper.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="view-btn"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <a href={paper.link} target="_blank" rel="noopener noreferrer" className="view-btn" onClick={(e) => e.stopPropagation()}>
                         <ExternalLink size={18} />
                       </a>
                     </div>
@@ -292,86 +328,50 @@ function App() {
             <div className="trend-card">
               <h3><BarChart3 size={20} /> Research Trends</h3>
               {trends && trends.trends && trends.trends.length > 0 ? (
-                <div style={{ minHeight: '300px' }}>
-                  <Plot
-                    data={[
-                      {
-                        x: (trends?.trends || []).map(t => t.year),
-                        y: (trends?.trends || []).map(t => t.count),
-                        type: 'scatter',
-                        mode: 'lines+markers',
-                        marker: { color: '#6366f1' },
-                        line: { shape: 'spline' }
-                      }
-                    ]}
-                    layout={{
-                      autosize: true,
-                      height: 300,
-                      paper_bgcolor: 'transparent',
-                      plot_bgcolor: 'transparent',
-                      font: { color: '#94a3b8' },
-                      margin: { t: 20, r: 20, b: 40, l: 40 },
-                      xaxis: { gridcolor: '#334155' },
-                      yaxis: { gridcolor: '#334155' }
-                    }}
-                    useResizeHandler={true}
-                    style={{ width: '100%', height: '100%' }}
-                    config={{ displayModeBar: false }}
-                  />
-                </div>
-              ) : (
-                <p className="muted">Search for a topic to see trends.</p>
-              )}
+                <Plot
+                  data={[{
+                    x: (trends?.trends || []).map(t => t.year),
+                    y: (trends?.trends || []).map(t => t.count),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    marker: { color: '#6366f1' },
+                    line: { shape: 'spline' }
+                  }]}
+                  layout={{
+                    autosize: true, height: 300, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                    font: { color: '#94a3b8' }, margin: { t: 20, r: 20, b: 40, l: 40 },
+                    xaxis: { gridcolor: '#334155' }, yaxis: { gridcolor: '#334155' }
+                  }}
+                  useResizeHandler={true} style={{ width: '100%' }} config={{ displayModeBar: false }}
+                />
+              ) : <p className="muted">Search for a topic to see trends.</p>}
             </div>
 
             <div className="history-card">
               <h3><Search size={20} /> Recent Searches</h3>
               <div className="history-list">
-                {history && history.length > 0 ? (
-                  history.slice(0, 10).map((h, i) => (
-                    <div key={i} className="history-item" onClick={() => { setQuery(h?.query || ''); setView('search'); }}>
-                      <ChevronRight size={14} />
-                      <span>{h?.query || 'Untitled Search'}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="muted">No search history yet.</p>
-                )}
+                {history.slice(0, 10).map((h, i) => (
+                  <div key={i} className="history-item" onClick={() => { setQuery(h?.query || ''); setView('search'); }}>
+                    <ChevronRight size={14} />
+                    <span>{h?.query || 'Untitled Search'}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
           
           <div className="results-grid">
-            {readingList && readingList.length > 0 ? (
-              readingList.map((paper) => (
-                <div key={paper.paper_id} className="paper-card" onClick={() => openDetail(paper)}>
-                  <h3 className="paper-title">{paper.title}</h3>
-                  <p className="paper-authors">
-                    {Array.isArray(paper.authors) ? paper.authors.join(', ') : paper.authors}
-                  </p>
-                  <p className="paper-abstract">{paper.abstract}</p>
-                  <div className="paper-footer">
-                    <button className="remove-btn" onClick={(e) => {
-                      e.stopPropagation();
-                      removePaper(paper.paper_id);
-                    }}>
-                      Remove
-                    </button>
-                    <a 
-                      href={paper.link} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="view-btn"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink size={18} />
-                    </a>
-                  </div>
+            {readingList.map((paper) => (
+              <div key={paper.paper_id} className="paper-card" onClick={() => openDetail(paper)}>
+                <h3 className="paper-title">{paper.title}</h3>
+                <p className="paper-authors">{paper.authors}</p>
+                <p className="paper-abstract">{paper.abstract}</p>
+                <div className="paper-footer">
+                  <button className="remove-btn" onClick={(e) => { e.stopPropagation(); removePaper(paper.paper_id); }}>Remove</button>
+                  <a href={paper.link} target="_blank" rel="noopener noreferrer" className="view-btn" onClick={(e) => e.stopPropagation()}><ExternalLink size={18} /></a>
                 </div>
-              ))
-            ) : (
-              <div className="loading"><p>Your library is empty.</p></div>
-            )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -379,98 +379,124 @@ function App() {
       {/* Detail Modal */}
       <AnimatePresence>
         {selectedPaper && (
-          <motion.div 
-            className="modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedPaper(null)}
-          >
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedPaper(null)}>
             <motion.div 
-              className="modal-content"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="modal-content" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button className="close-btn" onClick={() => setSelectedPaper(null)}>
-                <X size={24} />
-              </button>
+              <button className="close-btn" onClick={() => setSelectedPaper(null)}><X size={24} /></button>
 
               <div className="modal-header">
-                <span className="badge">Paper Details</span>
+                <span className="badge">AI Literatue Assistant</span>
                 <h2 className="modal-title">{selectedPaper.title}</h2>
                 <p className="modal-authors">{Array.isArray(selectedPaper.authors) ? selectedPaper.authors.join(', ') : selectedPaper.authors}</p>
               </div>
 
               <div className="modal-body">
+                {/* Feature 2: Insights */}
                 <section className="detail-section">
-                  <h3><Sparkles size={20} color="#8b5cf6" /> AI-Generated Summary</h3>
-                  {summaryLoading ? (
-                    <div className="skeleton-text">Generating summary...</div>
-                  ) : (
-                    <p className="ai-summary">{aiSummary || "Summary unavailable."}</p>
-                  )}
-                </section>
-
-                <section className="detail-section">
-                  <h3>Abstract</h3>
-                  <p>{selectedPaper.abstract}</p>
-                </section>
-
-                <section className="detail-section">
-                  <h3><Share2 size={20} /> Citation Graph</h3>
-                  <div className="citation-container">
-                    {citationsLoading ? (
-                      <div className="skeleton-text">Analyzing citations...</div>
-                    ) : citations.length > 0 ? (
-                      <Plot
-                        data={[
-                          {
-                            x: [selectedPaper?.title?.substring(0, 10), ...(citations || []).map(c => c?.title?.substring(0, 10))],
-                            y: [10, ...(citations || []).map((_, i) => i)],
-                            text: [selectedPaper?.title, ...(citations || []).map(c => c?.title)],
-                            mode: 'markers+text',
-                            type: 'scatter',
-                            marker: { size: 20, color: ['#8b5cf6', ...(citations || []).map(() => '#6366f1')] },
-                            textposition: 'top center'
-                          }
-                        ]}
-                        layout={{
-                          width: 600,
-                          height: 300,
-                          paper_bgcolor: 'transparent',
-                          plot_bgcolor: 'transparent',
-                          xaxis: { visible: false },
-                          yaxis: { visible: false },
-                          margin: { t: 0, r: 0, b: 0, l: 0 }
-                        }}
-                      />
-                    ) : (
-                      <p className="muted">No citations found in recent database.</p>
+                  <h3><Zap size={20} color="#f59e0b" /> Key Insights</h3>
+                  <div className="insights-grid">
+                    {insightsLoading ? [1,2,3,4,5].map(i => <div key={i} className="skeleton-card" />) : (
+                      <>
+                        <div className="insight-card">
+                          <h4><Info size={14} /> Methodology</h4>
+                          <p>{insights?.methodology || "Not specified"}</p>
+                        </div>
+                        <div className="insight-card">
+                          <h4><BookOpen size={14} /> Dataset</h4>
+                          <p>{insights?.dataset || "Not specified"}</p>
+                        </div>
+                        <div className="insight-card">
+                          <h4><Target size={14} /> Key Results</h4>
+                          <p>{insights?.key_results || "Not specified"}</p>
+                        </div>
+                        <div className="insight-card">
+                          <h4><AlertCircle size={14} /> Limitations</h4>
+                          <p>{insights?.limitations || "Not specified"}</p>
+                        </div>
+                        <div className="insight-card">
+                          <h4><Repeat size={14} /> Future Work</h4>
+                          <p>{insights?.future_work || "Not specified"}</p>
+                        </div>
+                      </>
                     )}
+                  </div>
+                </section>
+
+                <section className="detail-section">
+                  <h3><Sparkles size={20} color="#8b5cf6" /> AI Executive Summary</h3>
+                  {summaryLoading ? <div className="skeleton-text">Analyzing abstract...</div> : <p className="ai-summary">{aiSummary}</p>}
+                </section>
+
+                {/* Feature 1: Chat with Paper */}
+                <section className="detail-section">
+                  <h3><MessageSquare size={20} color="#10b981" /> Chat with Paper</h3>
+                  <div className="chat-container">
+                    <div className="chat-history">
+                      {chatMessages.map((msg, i) => (
+                        <div key={i} className={`chat-message ${msg.role}`}>
+                          {msg.content}
+                        </div>
+                      ))}
+                      {chatLoading && <div className="chat-message ai">Thinking...</div>}
+                      <div ref={chatEndRef} />
+                    </div>
+                    <div className="chat-suggestions">
+                      {suggestions.map((s, i) => (
+                        <button key={i} className="suggestion-chip" onClick={() => handleChat(s)}>{s}</button>
+                      ))}
+                    </div>
+                    <div className="chat-input-wrapper">
+                      <input 
+                        className="chat-input" placeholder="Ask anything about this paper..." 
+                        value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleChat()}
+                      />
+                      <button className="send-btn" onClick={() => handleChat()}><Send size={18} /></button>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Feature 3: Citation Graph */}
+                <section className="detail-section">
+                  <h3><Share2 size={20} color="#6366f1" /> Citation Topology</h3>
+                  <div className="graph-container">
+                    {graphLoading ? <div className="loading-overlay">Mapping citations...</div> : (
+                      graphData.nodes.length > 0 ? (
+                        <ForceGraph2D
+                          graphData={graphData}
+                          width={600}
+                          height={400}
+                          nodeLabel="title"
+                          nodeColor={n => n.color || "#6366f1"}
+                          nodeVal={n => n.val || 10}
+                          nodeRelSize={4}
+                          linkColor={() => '#334155'}
+                          backgroundColor="#0f172a"
+                          onNodeClick={node => {
+                            if (!node.id || String(node.id).startsWith('cite_')) return;
+                            window.open(`https://api.semanticscholar.org/paper/${node.id}`, '_blank');
+                          }}
+                        />
+                      ) : <div className="muted" style={{padding: '20px'}}>No citation data found for this paper.</div>
+                    )}
+                    <div className="graph-hint">Scroll to zoom • Drag to pan • Click purple nodes to view</div>
                   </div>
                 </section>
 
                 <section className="detail-section">
                   <h3>Related Research</h3>
                   <div className="related-list">
-                    {recsLoading ? (
-                      <div className="skeleton-text">Finding similar papers...</div>
-                    ) : relatedPapers.length > 0 ? (
-                      relatedPapers.map(rp => (
-                        <div key={rp.id} className="related-item" onClick={() => openDetail(rp)}>
-                          <ChevronRight size={16} />
-                          <div>
-                            <h4>{rp.title}</h4>
-                            <p>{rp.authors[0]} et al. ({rp.published.substring(0, 4)})</p>
-                          </div>
+                    {recsLoading ? <div className="skeleton-text">Finding matches...</div> : relatedPapers.map(rp => (
+                      <div key={rp.id} className="related-item" onClick={() => openDetail(rp)}>
+                        <ChevronRight size={16} />
+                        <div>
+                          <h4>{rp.title}</h4>
+                          <p>{rp.authors[0]} et al. ({rp.published.substring(0, 4)})</p>
                         </div>
-                      ))
-                    ) : (
-                      <p className="muted">No similar research found.</p>
-                    )}
+                      </div>
+                    ))}
                   </div>
                 </section>
               </div>
@@ -489,12 +515,6 @@ function App() {
         <div className="loading">
           <Sparkles className="spin" />
           <p>Semantic analysis in progress...</p>
-        </div>
-      )}
-
-      {results.length === 0 && !loading && !error && query && (
-        <div className="loading">
-          <p>No papers found. Try a different query.</p>
         </div>
       )}
     </div>

@@ -38,6 +38,28 @@ class SearchQuery(BaseModel):
 class SummaryRequest(BaseModel):
     text: str
 
+class SummaryResponse(BaseModel):
+    summary: str
+
+class InsightRequest(BaseModel):
+    title: str
+    abstract: str
+
+class InsightResponse(BaseModel):
+    methodology: str
+    dataset: str
+    key_results: str
+    limitations: str
+    future_work: str
+
+class ChatRequest(BaseModel):
+    title: str
+    abstract: str
+    question: str
+
+class ChatResponse(BaseModel):
+    answer: str
+
 class Paper(BaseModel):
     id: str
     title: str
@@ -95,12 +117,30 @@ async def recommend_papers(paper_id: str, title: str = "", abstract: str = ""):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/summarize")
+@app.post("/summarize", response_model=SummaryResponse)
 async def summarize_paper(request: SummaryRequest):
     try:
-        summarizer = get_summarizer()
-        summary = summarizer.summarize(request.text)
+        s = get_summarizer()
+        summary = s.summarize(request.text)
         return {"summary": summary}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/extract-insights", response_model=InsightResponse)
+async def extract_insights(request: InsightRequest):
+    try:
+        s = get_summarizer()
+        insights = s.extract_insights(request.title, request.abstract)
+        return insights
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_with_paper(request: ChatRequest):
+    try:
+        s = get_summarizer()
+        answer = s.answer_question(request.title, request.abstract, request.question)
+        return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -149,7 +189,16 @@ async def get_trends(topic: str):
 async def get_citations(paper_id: str, title: str = ""):
     try:
         engine = get_search_engine()
-        return engine.fetch_citations(paper_id, title=title)
+        return engine.get_citations_from_ss(paper_id, title)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/citation-graph/{paper_id}")
+async def get_citation_graph(paper_id: str):
+    try:
+        engine = get_search_engine()
+        graph_data = engine.get_citation_graph(paper_id)
+        return graph_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
