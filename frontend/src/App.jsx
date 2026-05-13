@@ -167,15 +167,16 @@ function App() {
 
     // 3. Insights (Feature 2)
     axios.post(`${API_BASE}/extract-insights`, { title: normalizedPaper.title, abstract: normalizedPaper.abstract })
-      .then(res => setInsights(res.data))
-      .catch(() => setInsights(null))
+      .then(res => setInsights(res.data || {}))
+      .catch(() => setInsights({}))
       .finally(() => setInsightsLoading(false));
 
     // 4. Citation Graph (Feature 3)
     const encodedId = encodeURIComponent(paperId);
     axios.get(`${API_BASE}/citation-graph/${encodedId}`)
       .then(res => {
-        if (res.data && res.data.nodes) {
+        // Defensive check: ensure res.data is a valid graph object
+        if (res.data && Array.isArray(res.data.nodes)) {
           setGraphData(res.data);
         } else {
           setGraphData({ nodes: [], links: [] });
