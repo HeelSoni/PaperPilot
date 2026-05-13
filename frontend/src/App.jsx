@@ -482,11 +482,17 @@ function App() {
                           nodeColor={n => n.color || "#6366f1"}
                           nodeVal={n => n.val || 10}
                           nodeRelSize={4}
-                          linkColor={() => '#334155'}
+                          linkColor={() => '#6366f1'}
+                          linkWidth={1.5}
+                          linkDirectionalParticles={2}
+                          linkDirectionalParticleSpeed={0.004}
                           backgroundColor="#0f172a"
+                          warmupTicks={100}
+                          cooldownTicks={0}
                           onNodeClick={node => {
-                            if (!node.id || String(node.id).startsWith('cite_')) return;
-                            window.open(`https://api.semanticscholar.org/paper/${node.id}`, '_blank');
+                            if (!node.id) return;
+                            const id = String(node.id).replace('v1','').replace('v2','').replace('v3','');
+                            window.open(`https://arxiv.org/abs/${id}`, '_blank');
                           }}
                         />
                       ) : <div className="muted" style={{padding: '20px'}}>No citation data found for this paper.</div>
