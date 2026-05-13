@@ -532,6 +532,11 @@ function App() {
           <p>Semantic analysis in progress...</p>
         </div>
       )}
+
+      {/* Version Marker to verify deployment */}
+      <div style={{ position: 'fixed', bottom: '10px', right: '10px', fontSize: '10px', color: '#334155', opacity: 0.5 }}>
+        v3.0 - STABLE
+      </div>
     </div>
     </ErrorBoundary>
   );
