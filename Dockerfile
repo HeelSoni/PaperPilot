@@ -23,8 +23,9 @@ COPY backend/ ./backend/
 # Create the database directory
 RUN mkdir -p /app/database
 
-# Expose port 7860 (HuggingFace Spaces default)
-EXPOSE 7860
+# Expose port (Railway will provide $PORT, we default to 8000)
+ENV PORT=8000
+EXPOSE $PORT
 
-# Start the FastAPI app
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start the FastAPI app using the PORT environment variable
+CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port $PORT"]

@@ -1,38 +1,48 @@
-from transformers import pipeline
-import torch
 import os
+import requests
+
+# HuggingFace Inference API — no local model needed
+_HF_API_URL = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
+_HF_TOKEN = os.environ.get("HF_API_TOKEN", "")  # Optional: set for higher rate limits
 
 class Summarizer:
-    def __init__(self, model_name=None):
-        # Default to a smaller model for deployment compatibility
-        if model_name is None:
-            model_name = os.environ.get("SUMMARIZER_MODEL", "sshleifer/distilbart-cnn-6-6")
-            
-        self.device = 0 if torch.cuda.is_available() else -1
-        try:
-            print(f"Loading summarizer: {model_name}...")
-            self.summarizer = pipeline("summarization", model=model_name, device=self.device)
-            print(f"Loaded summarizer on {'gpu' if self.device == 0 else 'cpu'}")
-        except Exception as e:
-            print(f"Failed to load model {model_name}: {e}")
-            self.summarizer = None
+    def __init__(self):
+        self.headers = {"Authorization": f"Bearer {_HF_TOKEN}"} if _HF_TOKEN else {}
+        print("Summarizer ready (using HuggingFace Inference API — no local model)")
 
     def summarize(self, text, max_length=150, min_length=40):
-        if not self.summarizer:
-            return "Summarizer model not loaded due to memory or initialization error."
-            
+        # Truncate input to keep API response fast
+        if len(text) > 1500:
+            text = text[:1500]
+
+        payload = {
+            "inputs": text,
+            "parameters": {
+                "max_length": max_length,
+                "min_length": min_length,
+                "do_sample": False
+            }
+        }
+
         try:
-            # BART 1024 token limit check (rough estimation by characters)
-            if len(text) > 3000: 
-                text = text[:3000]
-                
-            summary = self.summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
-            if summary:
-                return summary[0]['summary_text']
-            return "No summary could be generated."
+            response = requests.post(_HF_API_URL, headers=self.headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0].get("summary_text", "No summary available.")
+            elif response.status_code == 503:
+                # Model is loading — return a friendly message
+                return "Model is warming up on HuggingFace. Please try again in 20 seconds."
+            print(f"HF API error: {response.status_code} — {response.text[:200]}")
+            return self._fallback_summary(text)
         except Exception as e:
-            print(f"Summarization error: {e}")
-            return f"Error during summarization: {str(e)}"
+            print(f"Summarizer error: {e}")
+            return self._fallback_summary(text)
+
+    def _fallback_summary(self, text):
+        """Simple extractive fallback: return first 2 sentences."""
+        sentences = text.replace('\n', ' ').split('. ')
+        return '. '.join(sentences[:2]) + '.' if len(sentences) >= 2 else text[:300]
 
 # Global instance
 summarizer = None
