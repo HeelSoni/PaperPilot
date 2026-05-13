@@ -27,5 +27,5 @@ RUN mkdir -p /app/database
 ENV PORT=8000
 EXPOSE $PORT
 
-# Start the FastAPI app using the PORT environment variable
-CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port $PORT"]
+# Start the FastAPI app (Shell form allows $PORT expansion)
+CMD uvicorn backend.app:app --host 0.0.0.0 --port $PORT
