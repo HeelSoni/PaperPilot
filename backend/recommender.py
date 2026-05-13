@@ -138,51 +138,70 @@ class SearchEngine:
         ranked_papers = sorted(candidates, key=lambda x: x['relevance_score'], reverse=True)
         return ranked_papers[:max_results]
 
-    def get_citation_graph(self, paper_id, title=""):
+    def get_citation_graph(self, paper_id, title="", abstract=""):
         """
-        Fetches citations from Semantic Scholar. Tries arXiv ID first, then title search.
+        Fetches citations from Semantic Scholar. 
+        FALLBACK: If no citations found, fetches similar papers to build a discovery graph.
         """
         import time
 
-        def build_graph(data, paper_id):
-            nodes = [{"id": paper_id, "title": data.get("title", "Current Paper"), "val": 20, "color": "#7C3AED"}]
+        def build_graph(data, central_id, central_title):
+            nodes = [{"id": central_id, "title": central_title or "Current Paper", "val": 20, "color": "#7C3AED"}]
             links = []
-            for i, cite in enumerate(data.get("citations", [])[:15]):
-                cite_id = cite.get("paperId", f"cite_{i}")
-                nodes.append({"id": cite_id, "title": cite.get("title", "Related Work"), "val": 10, "color": "#6366f1"})
-                links.append({"source": paper_id, "target": cite_id})
+            
+            # Extract citations or data entries
+            items = data.get("citations", []) if "citations" in data else data.get("data", [])
+            for i, item in enumerate(items[:15]):
+                item_id = item.get("paperId", f"cite_{i}")
+                nodes.append({
+                    "id": item_id, 
+                    "title": item.get("title", "Related Work"), 
+                    "val": 10, 
+                    "color": "#6366f1"
+                })
+                links.append({"source": central_id, "target": item_id})
             return {"nodes": nodes, "links": links}
 
-        fields = "title,citations.title,citations.paperId"
-
-        # 1. Try by arXiv ID
+        # 1. Try Semantic Scholar for direct citations
         clean_id = paper_id.split('/')[-1].replace('arXiv:', '').strip()
         ss_id = f"ARXIV:{clean_id}"
-        url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields={fields}"
+        fields = "title,citations.title,citations.paperId"
+        
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields={fields}", timeout=8)
             if r.status_code == 200:
                 data = r.json()
-                if data.get("citations"):
-                    return build_graph(data, paper_id)
-        except Exception as e:
-            print(f"Citation graph arXiv lookup error: {e}")
+                if data.get("citations") and len(data["citations"]) > 0:
+                    return build_graph(data, paper_id, data.get("title", title))
+        except: pass
 
-        # 2. Fallback: search by title
+        # 2. Try Semantic Scholar Title Search
         if title:
             try:
-                search_url = "https://api.semanticscholar.org/graph/v1/paper/search"
-                params = {"query": title[:100], "fields": fields, "limit": 1}
-                r = requests.get(search_url, params=params, timeout=10)
+                r = requests.get(f"https://api.semanticscholar.org/graph/v1/paper/search?query={title[:100]}&fields={fields}&limit=1", timeout=8)
                 if r.status_code == 200:
                     results = r.json().get("data", [])
                     if results and results[0].get("citations"):
-                        return build_graph(results[0], paper_id)
-            except Exception as e:
-                print(f"Citation graph title search error: {e}")
+                        return build_graph(results[0], paper_id, results[0].get("title", title))
+            except: pass
 
-        # 3. Fallback — show single node
-        return {"nodes": [{"id": paper_id, "title": title or "Current Paper", "val": 20, "color": "#7C3AED"}], "links": []}
+        # 3. ABSOLUTE FALLBACK: Discovery Graph
+        # If no citations found, we fetch related research and build a similarity cluster
+        print(f"No citations found for {paper_id}. Generating Discovery Cluster...")
+        related = self.semantic_search(title or abstract or "deep learning", max_results=10)
+        
+        nodes = [{"id": paper_id, "title": title or "Current Paper", "val": 20, "color": "#7C3AED"}]
+        links = []
+        for i, p in enumerate(related):
+            nodes.append({
+                "id": p['id'],
+                "title": p['title'],
+                "val": 10,
+                "color": "#6366f1"
+            })
+            links.append({"source": paper_id, "target": p['id']})
+            
+        return {"nodes": nodes, "links": links}
 
     def recommend_related_papers(self, paper_id, title, abstract, max_results=5):
         """
