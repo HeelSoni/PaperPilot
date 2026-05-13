@@ -1,8 +1,8 @@
 import os
 import requests
 
-# HuggingFace Inference API — no local model needed
-_HF_API_URL = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
+# HuggingFace Inference API — stable models
+_HF_SUMMARIZE_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 _HF_TOKEN = os.environ.get("HUGGINGFACE_API_KEY", "")
 
 class Summarizer:
@@ -25,7 +25,7 @@ class Summarizer:
         }
 
         try:
-            response = requests.post(_HF_API_URL, headers=self.headers, json=payload, timeout=30)
+            response = requests.post(_HF_SUMMARIZE_URL, headers=self.headers, json=payload, timeout=30)
             if response.status_code == 200:
                 result = response.json()
                 if isinstance(result, list) and len(result) > 0:
