@@ -86,7 +86,8 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    import time
+    return {"status": "healthy", "timestamp": time.time()}
 
 @app.post("/search", response_model=List[Paper])
 async def search_papers(search_query: SearchQuery, db: Session = Depends(get_db)):
