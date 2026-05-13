@@ -64,10 +64,9 @@ class Summarizer:
             if response.status_code == 200:
                 result = response.json()
                 text = result[0].get("generated_text", "")
-                # Basic cleanup to find JSON in the response
+                # 1. Try to find JSON
                 import json
                 import re
-                # Find content between { and }
                 match = re.search(r'\{.*\}', text, re.DOTALL)
                 if match:
                     try:
@@ -75,12 +74,24 @@ class Summarizer:
                         # Ensure all keys exist
                         for key in ["methodology", "dataset", "key_results", "limitations", "future_work"]:
                             if key not in parsed:
-                                parsed[key] = "See abstract"
+                                parsed[key] = "Check abstract"
                         return parsed
                     except:
                         pass
+                
+                # 2. Fallback: Try to parse line by line if AI sends plain text
+                lines = text.split('\n')
+                result = self._fallback_insights()
+                for line in lines:
+                    low = line.lower()
+                    if 'method' in low: result['methodology'] = line.split(':')[-1].strip()[:50]
+                    if 'data' in low: result['dataset'] = line.split(':')[-1].strip()[:50]
+                    if 'result' in low: result['key_results'] = line.split(':')[-1].strip()[:50]
+                    if 'limit' in low: result['limitations'] = line.split(':')[-1].strip()[:50]
+                    if 'future' in low: result['future_work'] = line.split(':')[-1].strip()[:50]
+                return result
             
-            print(f"Insight API error or parse failure: {response.status_code}")
+            print(f"Insight API error {response.status_code}: {response.text[:100]}")
             return self._fallback_insights()
         except Exception as e:
             print(f"Insight extraction error: {e}")
