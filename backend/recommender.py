@@ -187,8 +187,6 @@ class SearchEngine:
             except Exception as e:
                 print(f"Citation attempt {attempt} error: {e}")
                 time.sleep(1)
-        except Exception as e:
-            print(f"Citation graph error: {e}")
         
         # Fallback empty graph
         return {"nodes": [{"id": paper_id, "title": "Paper", "val": 20, "color": "#7C3AED"}], "links": []}
