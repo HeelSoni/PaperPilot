@@ -502,7 +502,10 @@ function App() {
                         <ChevronRight size={16} />
                         <div>
                           <h4>{rp.title}</h4>
-                          <p>{rp.authors[0]} et al. ({rp.published.substring(0, 4)})</p>
+                          <p>
+                            {Array.isArray(rp.authors) ? rp.authors[0] : (rp.authors?.split(',')[0] || "Unknown")} et al. 
+                            ({rp.published ? rp.published.substring(0, 4) : "N/A"})
+                          </p>
                         </div>
                       </div>
                     ))}
