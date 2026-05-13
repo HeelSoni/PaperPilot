@@ -100,10 +100,10 @@ class Summarizer:
         if not os.getenv('HUGGINGFACE_API_KEY'):
             return "Please set HUGGINGFACE_API_KEY in environment variables to enable chat."
 
-        # Use Llama-3.2-3B-Instruct for maximum reliability
-        chat_model_url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+        # Use Mistral-7B-Instruct-v0.2 for proven stability
+        chat_model_url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
         
-        prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\nYou are a research assistant. Answer based on this paper.\nTitle: {title}\nAbstract: {abstract}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+        prompt = f"<s>[INST] You are a research assistant. Answer based on this paper.\nTitle: {title}\nAbstract: {abstract}\n\nQuestion: {question} [/INST]"
 
         payload = {
             "inputs": prompt,

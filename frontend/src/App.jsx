@@ -336,24 +336,27 @@ function App() {
           <div className="dashboard-grid">
             <div className="trend-card">
               <h3><BarChart3 size={20} /> Research Trends</h3>
-              {trends && trends.trends && trends.trends.length > 0 ? (
+              {trends && Array.isArray(trends.trends) && trends.trends.length > 0 ? (
                 <Plot
                   data={[{
-                    x: (trends?.trends || []).map(t => t.year),
-                    y: (trends?.trends || []).map(t => t.count),
+                    x: trends.trends.map(t => t?.year || 0),
+                    y: trends.trends.map(t => t?.count || 0),
                     type: 'scatter',
                     mode: 'lines+markers',
                     marker: { color: '#6366f1' },
                     line: { shape: 'spline' }
                   }]}
                   layout={{
-                    autosize: true, height: 300, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                    font: { color: '#94a3b8' }, margin: { t: 20, r: 20, b: 40, l: 40 },
-                    xaxis: { gridcolor: '#334155' }, yaxis: { gridcolor: '#334155' }
+                    autosize: true, height: 280, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                    margin: { l: 40, r: 20, t: 20, b: 40 },
+                    font: { color: '#94a3b8', size: 10 },
+                    xaxis: { gridcolor: '#1e293b', zeroline: false },
+                    yaxis: { gridcolor: '#1e293b', zeroline: false }
                   }}
-                  useResizeHandler={true} style={{ width: '100%' }} config={{ displayModeBar: false }}
+                  config={{ responsive: true, displayModeBar: false }}
+                  style={{ width: '100%' }}
                 />
-              ) : <p className="muted">Search for a topic to see trends.</p>}
+              ) : <p className="muted">Trends will appear after a search.</p>}
             </div>
 
             <div className="history-card">
