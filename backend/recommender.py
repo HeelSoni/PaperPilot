@@ -1,18 +1,11 @@
 import requests
 import xml.etree.ElementTree as ET
-try:
-    from backend.embeddings import get_embedder
-except ImportError:
-    from embeddings import get_embedder
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import time
 
 class SearchEngine:
     def __init__(self):
         self.arxiv_base_url = "http://export.arxiv.org/api/query?"
         self.ss_base_url = "https://api.semanticscholar.org/graph/v1"
-        self.embedder = get_embedder()
 
     def fetch_from_arxiv(self, query, max_results=20):
         """
@@ -105,38 +98,18 @@ class SearchEngine:
 
     def semantic_search(self, query, max_results=10):
         """
-        Performs semantic search: fetch -> embed -> rank.
+        Fast search: fetch papers from ArXiv and return directly.
+        ArXiv already sorts by relevance — no embedding needed.
+        Removed sentence-transformer embedding which caused 5-9 min delays on CPU.
         """
-        # Truncate query for arXiv API if it's too long (abstracts can be huge)
         arxiv_query = query[:200] if len(query) > 200 else query
+        papers = self.fetch_from_arxiv(arxiv_query, max_results=max_results)
         
-        # 1. Fetch candidates (keyword-based fallback from API)
-        candidates = self.fetch_from_arxiv(arxiv_query, max_results=max_results * 3)
+        # Add a mock relevance score so frontend can display it
+        for i, p in enumerate(papers):
+            p['relevance_score'] = round(1.0 - (i * 0.05), 2)
         
-        if not candidates or len(candidates) == 0:
-            print("Warning: No candidates found. Forcing mock results...")
-            candidates = self.fetch_from_arxiv("fallback_mock", max_results=5)
-
-        print(f"Found {len(candidates)} candidates. Starting semantic reranking...")
-
-        # 2. Embed query and abstracts
-        print("Encoding query...")
-        query_embedding = self.embedder.embed_text(query)
-        print("Encoding abstracts...")
-        abstracts = [p['abstract'] for p in candidates]
-        abstract_embeddings = self.embedder.embed_text(abstracts)
-
-        # 3. Calculate cosine similarity
-        print("Calculating similarities...")
-        similarities = cosine_similarity(query_embedding, abstract_embeddings)[0]
-
-        # 4. Rank and format
-        for i, paper in enumerate(candidates):
-            paper['relevance_score'] = float(similarities[i])
-
-        # Sort by score descending
-        ranked_papers = sorted(candidates, key=lambda x: x['relevance_score'], reverse=True)
-        return ranked_papers[:max_results]
+        return papers
 
     def get_citation_graph(self, paper_id, title="", abstract=""):
         """
