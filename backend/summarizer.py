@@ -3,7 +3,7 @@ import requests
 
 # HuggingFace Inference API — no local model needed
 _HF_API_URL = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
-_HF_TOKEN = os.environ.get("HF_API_TOKEN", "")  # Optional: set for higher rate limits
+_HF_TOKEN = os.environ.get("HUGGINGFACE_API_KEY", "")
 
 class Summarizer:
     def __init__(self):
