@@ -97,20 +97,12 @@ class Summarizer:
 
     def answer_question(self, title, abstract, question):
         """Answers a question about the paper using the abstract."""
+        if not os.getenv('HUGGINGFACE_API_KEY'):
+            return "Please set HUGGINGFACE_API_KEY in environment variables to enable chat."
+
         chat_model_url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
         
-        prompt = f"""
-        You are an AI research assistant. Answer the question about the research paper based on the title and abstract provided.
-        If the answer is not in the abstract, say "I couldn't find that specific detail in the abstract."
-        Keep the answer concise (under 3 sentences).
-
-        Paper Title: {title}
-        Paper Abstract: {abstract}
-        
-        Question: {question}
-        
-        Answer:
-        """
+        prompt = f"<s>[INST] You are an AI research assistant. Answer the question about the research paper based on the title and abstract provided. Paper Title: {title} Abstract: {abstract} Question: {question} [/INST]"
 
         payload = {
             "inputs": prompt,

@@ -142,11 +142,11 @@ class SearchEngine:
         """
         Fetches citations from Semantic Scholar and returns a graph structure.
         """
+        # Clean ID (Remove URL prefix if any)
+        clean_id = paper_id.split('/')[-1].replace('arXiv:', '')
+        
         # Ensure ArXiv ID format for Semantic Scholar
-        if not paper_id.startswith("ARXIV:"):
-            ss_id = f"ARXIV:{paper_id}"
-        else:
-            ss_id = paper_id
+        ss_id = f"ARXIV:{clean_id}"
 
         # Use Semantic Scholar API to get citations
         url = f"https://api.semanticscholar.org/graph/v1/paper/{ss_id}?fields=title,authors,year,citations.title,citations.authors,citations.year,citations.paperId"
