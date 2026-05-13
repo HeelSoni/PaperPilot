@@ -46,11 +46,11 @@ class InsightRequest(BaseModel):
     abstract: str
 
 class InsightResponse(BaseModel):
-    methodology: str
-    dataset: str
-    key_results: str
-    limitations: str
-    future_work: str
+    methodology: Optional[str] = "Not specified"
+    dataset: Optional[str] = "Not specified"
+    key_results: Optional[str] = "Not specified"
+    limitations: Optional[str] = "Not specified"
+    future_work: Optional[str] = "Not specified"
 
 class ChatRequest(BaseModel):
     title: str

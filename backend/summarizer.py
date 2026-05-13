@@ -67,11 +67,20 @@ class Summarizer:
                 # Basic cleanup to find JSON in the response
                 import json
                 import re
+                # Find content between { and }
                 match = re.search(r'\{.*\}', text, re.DOTALL)
                 if match:
-                    return json.loads(match.group(0))
+                    try:
+                        parsed = json.loads(match.group(0))
+                        # Ensure all keys exist
+                        for key in ["methodology", "dataset", "key_results", "limitations", "future_work"]:
+                            if key not in parsed:
+                                parsed[key] = "See abstract"
+                        return parsed
+                    except:
+                        pass
             
-            print(f"Insight API error: {response.status_code}")
+            print(f"Insight API error or parse failure: {response.status_code}")
             return self._fallback_insights()
         except Exception as e:
             print(f"Insight extraction error: {e}")
