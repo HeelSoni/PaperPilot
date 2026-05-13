@@ -116,13 +116,15 @@ class Summarizer:
             response = requests.post(chat_model_url, headers=self.headers, json=payload, timeout=30)
             if response.status_code == 200:
                 result = response.json()
-                return result[0].get("generated_text", "").strip()
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0].get("generated_text", "No answer available.").split("[/INST]")[-1].strip()
             
-            print(f"Chat API error: {response.status_code}")
+            # Log the error for the user to see in Railway
+            print(f"Chat AI Error: {response.status_code} - {response.text}")
             return "I'm having trouble connecting to my brain right now. Please try again."
         except Exception as e:
-            print(f"Chat error: {e}")
-            return "An error occurred while trying to answer your question."
+            print(f"Chat AI Exception: {e}")
+            return "I'm having trouble connecting to my brain right now. Please try again."
 
 # Global instance
 summarizer = None
